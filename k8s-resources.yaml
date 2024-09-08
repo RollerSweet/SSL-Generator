@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ssl-generator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssl-gen-backend
+  namespace: ssl-generator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ssl-gen-backend
+  template:
+    metadata:
+      labels:
+        app: ssl-gen-backend
+    spec:
+      containers:
+      - name: ssl-gen-backend
+        image: rollersweet/ssl-gen-backend:latest
+        ports:
+        - containerPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssl-gen-frontend
+  namespace: ssl-generator
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ssl-gen-frontend
+  template:
+    metadata:
+      labels:
+        app: ssl-gen-frontend
+    spec:
+      containers:
+      - name: ssl-gen-frontend
+        image: rollersweet/ssl-gen-frontend:latest
+        ports:
+        - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssl-gen-backend
+  namespace: ssl-generator
+spec:
+  selector:
+    app: ssl-gen-backend
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ssl-gen-frontend
+  namespace: ssl-generator
+spec:
+  selector:
+    app: ssl-gen-frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ssl-gen-ingress
+  namespace: ssl-generator
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: "nginx"
+  tls:
+  - hosts:
+    - ssl-gen-backend.domain.name
+    - ssl-generator.domain.name
+    secretName: domain-name
+  rules:
+  - host: ssl-gen-backend.domain.name
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ssl-gen-backend
+            port:
+              number: 8000
+  - host: ssl-generator.domain.name
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: ssl-gen-frontend
+            port:
+              number: 3000
